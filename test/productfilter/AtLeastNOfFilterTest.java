@@ -5,9 +5,6 @@
  */
 package productfilter;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
 import static org.junit.Assert.assertEquals;
 import org.junit.Rule;
 import org.junit.Test;
@@ -18,7 +15,8 @@ import static org.mockito.Mockito.mock;
 
 /**
  *
- * @author vcaniga
+ * @author Vladimir Caniga
+ * @author Jakub Smolar
  */
 public class AtLeastNOfFilterTest {
     
@@ -26,7 +24,7 @@ public class AtLeastNOfFilterTest {
     public ExpectedException expectedException = ExpectedException.none();
     
     @Test
-    public void constructorTest() {
+    public void constructorShouldPassTest() {
         
         Filter filter = mock(Filter.class);
         
@@ -35,7 +33,7 @@ public class AtLeastNOfFilterTest {
     }
     
     @Test
-    public void constructorNLowerThan0() {
+    public void constructorNLowerThan0Test() {
         Filter filter = mock(Filter.class);
         
         expectedException.expect(IllegalArgumentException.class);
@@ -43,7 +41,7 @@ public class AtLeastNOfFilterTest {
     }
     
     @Test
-    public void constructorNHigherThanFilters() {
+    public void constructorNHigherThanFiltersTest() {
         Filter filter = mock(Filter.class);
         Filter filter2 = mock(Filter.class);
         Filter filter3 = mock(Filter.class);
@@ -53,7 +51,7 @@ public class AtLeastNOfFilterTest {
     }
     
     @Test
-    public void passesCorrectTest() {
+    public void passesExactNChildrenPassTest() {
         Filter filter = mock(Filter.class);
         Mockito.when(filter.passes(Matchers.anyObject())).thenReturn(true);
         Filter filter2 = mock(Filter.class);
@@ -64,7 +62,7 @@ public class AtLeastNOfFilterTest {
     }
     
     @Test
-    public void passesIncorrectTest() {
+    public void passesIncorrectNChildrenPassTest() {
         Filter filter = mock(Filter.class);
         Mockito.when(filter.passes(Matchers.anyObject())).thenReturn(true);
         Filter filter2 = mock(Filter.class);

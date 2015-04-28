@@ -5,25 +5,23 @@
  */
 package productfilter;
 
-import com.sun.org.apache.xerces.internal.impl.dv.xs.DecimalDV;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import static org.junit.Assert.assertEquals;
 import org.junit.Test;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Matchers;
-import org.mockito.Mockito;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static productfilter.Controller.TAG_CONTROLLER;
 
 /**
  *
- * @author vcaniga
+ * @author Vladimir Caniga
+ * @author Jakub Smolar
  */
 public class ControllerTest {
 
@@ -32,29 +30,33 @@ public class ControllerTest {
         Input input = new InputMock();
         Output output = new OutputMock();
         Logger logger = mock(Logger.class);
-        Mockito.doNothing().when(logger).log(Matchers.anyString(), Matchers.anyString());
-        Mockito.doNothing().when(logger).setLevel(Matchers.anyString());
-
-        Filter filter = mock(Filter.class);
-        //Mockito.verify(filter).passes(Mockito.argThat(Matchers.<Product>hasProperty("color", CoreMatchers.equalTo(Color.RED))));
-        //when(filter.passes((Product) Matchers.argThat(new IsColorRed())));
-        when(filter.passes(new Product(1, "FirstProduct", Color.RED, new BigDecimal(100)))).thenReturn(true);
-        Filter filter2 = mock(Filter.class);
-        when(filter2.passes(new Product(2, "SecondProduct", Color.GREEN, new BigDecimal(200)))).thenReturn(true);
-        Filter filter3 = mock(Filter.class);
-        when(filter3.passes(Matchers.any(Product.class))).thenReturn(false);
         
-        List<Filter> list = new ArrayList<>();
-        list.add(filter);
-//        list.add(filter2);
-//        list.add(filter3);
+        Filter filter = mock(Filter.class);
+        when(filter.passes((Product) Matchers.argThat(new IsColorRed()))).thenReturn(true);
 
         Controller controller = new Controller(input, output, logger);
         controller.select(filter);
 
         OutputMock outputMock = (OutputMock) output;
-        assertEquals(1, outputMock.getSentProducts().size());
-        assertEquals(new Product(1, "FirstProduct", Color.RED, new BigDecimal(100)), outputMock.getSentProducts().get(0));
+        assertEquals(1, outputMock.sentProducts.size());
+        assertEquals(new Product(1, "FirstProduct", Color.RED, new BigDecimal(100)), outputMock.sentProducts.get(0));
+    }
+    
+    @Test
+    public void sendExactProductsMultipleMatchesFound() {
+        Input input = new InputMock();
+        Output output = new OutputMock();
+        Logger logger = mock(Logger.class);
+        
+        Filter filter = mock(Filter.class);
+        when(filter.passes((Product) Matchers.argThat(new IsPriceEqualTo100()))).thenReturn(true);
+        
+        Controller controller = new Controller(input, output, logger);
+        controller.select(filter);
+        
+        OutputMock outputMock = (OutputMock) output;
+        Assert.assertTrue(outputMock.sentProducts.contains(new Product(1, "FirstProduct", Color.RED, new BigDecimal(100))));
+        Assert.assertTrue(outputMock.sentProducts.contains(new Product(3, "ThordProduct", Color.BLUE, new BigDecimal(100))));
     }
     
     @Test
@@ -62,9 +64,7 @@ public class ControllerTest {
         Input input = new InputMock();
         Output output = new OutputMock();
         Logger logger = mock(Logger.class);
-        Mockito.doNothing().when(logger).log(Matchers.anyString(), Matchers.anyString());
-        Mockito.doNothing().when(logger).setLevel(Matchers.anyString());
-
+        
         Filter filter = mock(Filter.class);
         when(filter.passes(new Product(0, "Nonexistent", Color.BLACK, new BigDecimal(0)))).thenReturn(true);
         
@@ -72,7 +72,7 @@ public class ControllerTest {
         controller.select(filter);
 
         OutputMock outputMock = (OutputMock) output;
-        assertEquals(0, outputMock.getSentProducts().size());
+        assertEquals(0, outputMock.sentProducts.size());
     }
     
     @Test
@@ -81,11 +81,11 @@ public class ControllerTest {
         Output output = new OutputMock();
         Logger logger = new Loggermock();
         
-        Filter filter2 = mock(Filter.class);
-        when(filter2.passes(new Product(2, "SecondProduct", Color.GREEN, new BigDecimal(200)))).thenReturn(true);
+        Filter filter = mock(Filter.class);
+        when(filter.passes((Product) Matchers.argThat(new IsColorRed()))).thenReturn(true);
         
         Controller controller = new Controller(input, output, logger);
-        controller.select(filter2);
+        controller.select(filter);
         
         Loggermock loggermock = (Loggermock) logger;
         assertEquals(1, loggermock.levelList.size());
@@ -121,7 +121,7 @@ public class ControllerTest {
     }
     
     @Test
-    public void whenExceptionNothingInOutput() throws ObtainFailedException {
+    public void whenExceptionThenNothingInOutput() throws ObtainFailedException {
         Input input = mock(Input.class);
         when(input.obtainProducts()).thenThrow(ObtainFailedException.class);
         Output output = new OutputMock();
@@ -134,15 +134,24 @@ public class ControllerTest {
         controller.select(filter3);
         
         OutputMock outputMock = (OutputMock) output;
-        assertEquals(0, outputMock.getSentProducts().size());
+        assertEquals(0, outputMock.sentProducts.size());
     }
     
-    //does not work
+
+    
     class IsColorRed extends ArgumentMatcher<Product> {
         @Override
         public boolean matches(Object argument) {
             Product prod = (Product) argument;
             return prod.getColor() == Color.RED;
+        }
+    }
+    
+    class IsPriceEqualTo100 extends ArgumentMatcher<Product> {
+        @Override
+        public boolean matches(Object argument) {
+            Product prod = (Product) argument;
+            return prod.getPrice().equals(BigDecimal.valueOf(100));
         }
     }
     
@@ -162,18 +171,6 @@ public class ControllerTest {
             tagList.add(tag);
             messageList.add(message);
         }
-
-        public List<String> getLevelList() {
-            return levelList;
-        }
-
-        public List<String> getMessageList() {
-            return messageList;
-        }
-
-        public List<String> getTaglist() {
-            return tagList;
-        }        
     }
 
     private static class InputMock implements Input {
@@ -183,7 +180,7 @@ public class ControllerTest {
             Collection<Product> finalProducts = new ArrayList<>();
             finalProducts.add(new Product(1, "FirstProduct", Color.RED, new BigDecimal(100)));
             finalProducts.add(new Product(2, "SecondProduct", Color.GREEN, new BigDecimal(200)));
-            finalProducts.add(new Product(3, "ThordProduct", Color.BLUE, new BigDecimal(300)));
+            finalProducts.add(new Product(3, "ThordProduct", Color.BLUE, new BigDecimal(100)));
             finalProducts.add(new Product(4, "ForthProduct", Color.BLACK, new BigDecimal(400)));
 
             return finalProducts;
@@ -198,10 +195,5 @@ public class ControllerTest {
         public void postSelectedProducts(Collection<Product> products) {
             this.sentProducts = (ArrayList<Product>) products;
         }
-
-        public List<Product> getSentProducts() {
-            return sentProducts;
-        }
-
     }
 }
